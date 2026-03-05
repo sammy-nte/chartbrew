@@ -189,7 +189,7 @@ module.exports = (app) => {
   */
   app.get(`${url}/generate/:project_id`, verifyToken, async (req, res) => {
     try {
-       checkAccess(req, "updateAny", "chart");
+      await checkAccess(req, "updateAny", "chart");
     } catch (error) {
       return formatError(error, res);
     }
