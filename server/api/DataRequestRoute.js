@@ -141,7 +141,7 @@ module.exports = (app) => {
    */
   app.delete(`${root}/:id`, verifyToken, checkPermissions, (req, res) => {
     return dataRequestController
-      .delete()
+      .delete(req.params.id)
       .then((dataRequest) => {
         return res.status(200).send(dataRequest);
       })

@@ -275,7 +275,10 @@ class RequestController {
     return db.DataRequest.destroy({
       where: { id },
     })
-      .then(() => {
+      .then((rowsDeleted) => {
+        if (rowsDeleted === 0) {
+          return new Promise((resolve, reject) => reject(new Error("404")));
+        }
         return new Promise((resolve) => resolve({ deleted: true }));
       })
       .catch((error) => {

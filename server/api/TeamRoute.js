@@ -186,6 +186,7 @@ module.exports = (app) => {
 
     let newRole = {};
     return jwt.verify(req.body.token, app.settings.encryptionKey, (err, decoded) => {
+      if (err) return res.status(401).send({ error: "Invalid invite token" });
       return teamController.addTeamRole(decoded.team_id, req.user.id, decoded.role || "projectViewer", decoded.projects, decoded.canExport)
         .then((role) => {
           newRole = role;
