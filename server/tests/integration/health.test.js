@@ -1,3 +1,12 @@
+/**
+ * This test file checks the health and connectivity of the test server.
+ *
+ * It tests:
+ * - That the root endpoint (GET /) returns a welcome message with a 200 status
+ * - That the response has a JSON content-type header
+ * - That the test database connection is active and can be authenticated
+ * - That the database connection details include the expected dialect and database name
+ */
 import {
   describe, it, expect, beforeAll
 } from "vitest";

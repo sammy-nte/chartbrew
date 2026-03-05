@@ -1,3 +1,12 @@
+/**
+ * This test file checks two-factor authentication (2FA) for user login.
+ *
+ * It tests:
+ * - That logging in when 2FA is enabled returns the 2FA method info instead of a full token
+ * - That submitting a valid TOTP code completes the login and returns a JWT token
+ * - That the lastLogin timestamp is updated after a successful 2FA login
+ * - That submitting an invalid TOTP code returns 401
+ */
 import {
   describe, it, expect, beforeAll
 } from "vitest";

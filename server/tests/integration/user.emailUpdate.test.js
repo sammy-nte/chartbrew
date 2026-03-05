@@ -1,3 +1,12 @@
+/**
+ * This test file checks the user email update flow.
+ *
+ * It tests:
+ * - Requesting an email change and then confirming it with a valid verification token
+ * - Verifying the email in the database is updated to the new address
+ * - Rejecting the email update when the verification token is invalid or malformed
+ * - Verifying the email remains unchanged when the update fails
+ */
 import {
   describe, it, expect, beforeAll
 } from "vitest";

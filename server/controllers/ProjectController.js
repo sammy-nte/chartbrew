@@ -166,6 +166,7 @@ class ProjectController {
           model: db.Chart,
           attributes: { exclude: ["query"] },
           where: { onReport: true },
+          required: false,
           include: [{
             model: db.ChartDatasetConfig,
             order: [["order", "ASC"]],

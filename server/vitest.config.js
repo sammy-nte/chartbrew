@@ -6,8 +6,8 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: ["./tests/setup.js"],
-    testTimeout: 30000, // 30s timeout for tests (useful for container startup)
-    hookTimeout: 30000,
+    testTimeout: 60000, // 60s timeout for tests (useful for container startup)
+    hookTimeout: 120000, // 2 min for beforeAll hooks that spin up Docker containers
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

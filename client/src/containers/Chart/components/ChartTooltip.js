@@ -1,3 +1,5 @@
+import DOMPurify from "dompurify";
+
 export const createTooltipElement = () => {
   const tooltipEl = document.createElement("div");
   tooltipEl.id = "chartjs-tooltip";
@@ -86,7 +88,7 @@ export const tooltipPlugin = {
       const titleLines = tooltipModel.title || [];
       const bodyLines = tooltipModel.body.map(b => b.lines[0]);
       const isCategoryChart = context.tooltip.options.isCategoryChart;
-      tooltipEl.innerHTML = generateTooltipContent(titleLines, bodyLines, tooltipModel.labelColors, isCategoryChart);
+      tooltipEl.innerHTML = DOMPurify.sanitize(generateTooltipContent(titleLines, bodyLines, tooltipModel.labelColors, isCategoryChart));
     }
 
     // Get window dimensions

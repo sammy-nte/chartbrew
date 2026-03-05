@@ -1,3 +1,14 @@
+/**
+ * This test file checks the password reset flow.
+ *
+ * It tests:
+ * - The full end-to-end reset flow: requesting a reset link, then using the generated
+ *   token to set a new password, and verifying it is stored as a bcrypt hash
+ * - That the password reset token is rotated after a successful change
+ * - That the old password no longer works after it has been changed
+ *
+ * Email delivery is mocked — no real emails are sent during these tests.
+ */
 import {
   describe, it, expect, beforeAll, vi
 } from "vitest";

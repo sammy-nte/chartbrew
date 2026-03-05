@@ -1,3 +1,16 @@
+/**
+ * This test file checks the helper functions used to generate and verify
+ * JWT tokens in other tests.
+ *
+ * It tests:
+ * - Generating a valid JWT token with the default test user payload
+ * - Overriding the default payload (e.g. a different user ID or email)
+ * - Setting a custom expiry time on the token
+ * - Generating an admin token with admin privileges
+ * - Building an Authorization header with a Bearer token
+ * - Verifying a token and extracting its payload
+ * - Throwing an error when a token is invalid
+ */
 import { describe, it, expect } from "vitest";
 import {
   generateTestToken,

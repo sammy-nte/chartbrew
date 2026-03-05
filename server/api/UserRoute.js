@@ -7,11 +7,8 @@ const verifyUser = require("../modules/verifyUser");
 const verifyToken = require("../modules/verifyToken");
 const userResponse = require("../modules/userResponse");
 
-const apiLimiter = (max = 10) => {
-  return rateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    max,
-  });
+const apiLimiter = (max = 10, windowMs = 60 * 1000) => {
+  return rateLimit({ windowMs, max });
 };
 
 module.exports = (app) => {
@@ -68,7 +65,7 @@ module.exports = (app) => {
   /*
   ** Route for creating a new user
   */
-  app.post("/user", async (req, res) => {
+  app.post("/user", apiLimiter(5), async (req, res) => {
     if (!req.body.email || !req.body.password) return res.status(400).send("no email or password");
 
     if (app.settings.signupRestricted === "1") {
@@ -120,7 +117,7 @@ module.exports = (app) => {
   /*
   ** Route to process invitations
   */
-  app.post("/user/invited", (req, res) => {
+  app.post("/user/invited", apiLimiter(5), (req, res) => {
     if (!req.body.email || !req.body.password) return res.status(400).send("no email or password");
 
     const icon = req.body.name.substring(0, 2);
@@ -163,7 +160,7 @@ module.exports = (app) => {
   /*
   ** Route to login users
   */
-  app.post("/user/login", apiLimiter(10), (req, res) => {
+  app.post("/user/login", apiLimiter(5, 15 * 60 * 1000), (req, res) => {
     if (!req.body.email || !req.body.password) return res.status(400).send("fields are missing");
     let user = {};
     return userController.login(req.body.email, req.body.password)
@@ -279,8 +276,8 @@ module.exports = (app) => {
   /*
   ** Route to request a password reset email
   */
-  app.post("/user/password/reset", apiLimiter(10), (req, res) => {
-    userController.requestPasswordReset(req.body.email);
+  app.post("/user/password/reset", apiLimiter(3, 15 * 60 * 1000), (req, res) => {
+    userController.requestPasswordReset(req.body.email).catch(() => {});
     return res.status(200).send({ "success": true });
   });
   // --------------------------------------
@@ -375,7 +372,7 @@ module.exports = (app) => {
   /*
   ** Route to validate 2fa login method
   */
-  app.post("/user/:id/2fa/:method_id/login", apiLimiter(5), (req, res) => {
+  app.post("/user/:id/2fa/:method_id/login", apiLimiter(3), (req, res) => {
     let user;
     return userController.validate2FaLogin(req.params.id, req.body.method_id, req.body.token)
       .then((data) => {

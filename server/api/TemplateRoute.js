@@ -187,9 +187,9 @@ module.exports = (app) => {
   /*
   ** Route to create a template from a project and get the generation JSON
   */
-  app.get(`${url}/generate/:project_id`, verifyToken, (req, res) => {
+  app.get(`${url}/generate/:project_id`, verifyToken, async (req, res) => {
     try {
-      checkAccess(req, "updateAny", "chart");
+       checkAccess(req, "updateAny", "chart");
     } catch (error) {
       return formatError(error, res);
     }

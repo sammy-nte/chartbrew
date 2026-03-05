@@ -1,3 +1,16 @@
+/**
+ * This test file checks user profile management and account operations.
+ *
+ * It tests:
+ * - That a user can update their own profile (name, tutorials)
+ * - That unauthenticated requests are rejected (401)
+ * - That a user cannot update another user's profile (401)
+ * - That the admin flag cannot be elevated through the update API
+ * - That a user can delete their own account
+ * - That a user cannot delete another user's account (401)
+ * - That a user can fetch their own profile data (without the password field)
+ * - That the admin-only user list endpoint is blocked for regular and unauthenticated users
+ */
 import {
   describe, it, expect, beforeAll
 } from "vitest";

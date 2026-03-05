@@ -48,7 +48,7 @@ jobs:
       - run:
           name: Linting server code
           command: cd server && npm install && npm run lint
-  
+
   # lint the client project
   lint_client:
     docker:

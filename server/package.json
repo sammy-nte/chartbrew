@@ -10,6 +10,7 @@
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
     "test:ui": "vitest --ui",
     "start-dev": "set NODE_ENV=development && nodemon index",
     "start": "NODE_ENV=production node index",

@@ -102,10 +102,7 @@ class RequestController {
       ]
     })
       .then((dataRequests) => {
-        if (!dataRequests || dataRequests.length === 0) {
-          return new Promise((resolve, reject) => reject(new Error(404)));
-        }
-        return Promise.resolve(dataRequests);
+        return Promise.resolve(dataRequests || []);
       })
       .catch((error) => {
         return Promise.reject(error);

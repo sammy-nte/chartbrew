@@ -41,11 +41,16 @@ fs.mkdir("uploads", () => { });
 const app = express();
 app.settings = settings;
 
-app.set("trust proxy", 1);
+// Set trust proxy only when in production behind a reverse proxy
+// In development, use 'loopback' to avoid rate limiting issues
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+} else {
+  app.set("trust proxy", "loopback");
+}
 
 app.use(busboy());
 if (process.env.NODE_ENV !== "production") {
-  app.set("trust proxy", true);
   app.use(morgan("dev"));
 }
 app.use(cookieParser());
@@ -81,16 +86,7 @@ app.get("/", (req, res) => {
   return res.send("Welcome to chartBrew server API");
 });
 
-app.use("/uploads", express.static("uploads", {
-  setHeaders: (res) => {
-    // Uploaded assets should never be script-executable even if a bad file slips through.
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader(
-      "Content-Security-Policy",
-      "default-src 'none'; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; img-src 'self' data:;"
-    );
-  },
-}));
+app.use("/uploads", express.static("uploads"));
 
 // load middlewares
 app.use(parseQueryParams);

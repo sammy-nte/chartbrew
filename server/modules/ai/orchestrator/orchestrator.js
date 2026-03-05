@@ -1032,12 +1032,10 @@ async function orchestrate(
   // Initial API call
   const startTime1 = Date.now();
   let response = await openaiClient.chat.completions.create({
-    model: openAiModel || "gpt-5-nano",
+    model: openAiModel || "gpt-4o-mini",
     messages,
     tools,
     tool_choice: "auto",
-    reasoning_effort: "low",
-    verbosity: "low",
   });
   const elapsedMs1 = Date.now() - startTime1;
 
@@ -1195,12 +1193,10 @@ async function orchestrate(
     const startTime = Date.now();
     // eslint-disable-next-line no-await-in-loop
     response = await openaiClient.chat.completions.create({
-      model: openAiModel || "gpt-5-nano",
+      model: openAiModel || "gpt-4o-mini",
       messages: updatedMessages,
       tools,
       tool_choice: "auto",
-      reasoning_effort: "low",
-      verbosity: "low",
     });
     const elapsedMs = Date.now() - startTime;
 

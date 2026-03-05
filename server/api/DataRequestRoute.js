@@ -5,6 +5,9 @@ const TeamController = require("../controllers/TeamController");
 const verifyToken = require("../modules/verifyToken");
 const DatasetController = require("../controllers/DatasetController");
 const ConnectionController = require("../controllers/ConnectionController");
+const {
+  createPermissionMiddleware,
+} = require("../middlewares/checkPermissions");
 
 const apiLimiter = (max = 10) => {
   return rateLimit({
@@ -21,61 +24,50 @@ module.exports = (app) => {
 
   const root = "/team/:team_id/datasets/:dataset_id/dataRequests";
 
-  const checkPermissions = async (req, res, next) => {
-    const { team_id } = req.params;
-
-    // Fetch the TeamRole for the user
-    const teamRole = await teamController.getTeamRole(team_id, req.user.id);
-
-    if (!teamRole) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    const { role, projects } = teamRole;
-
-    // Handle permissions for teamOwner and teamAdmin
-    if (["teamOwner", "teamAdmin"].includes(role)) {
+  const checkPermissions = createPermissionMiddleware("dataRequest", {
+    validateAdminScope: async (req, teamRole) => {
       if (req?.body?.connection_id) {
-        const connection = await connectionController.findById(req.body.connection_id);
-        if (connection.team_id !== teamRole?.team_id) {
-          return res.status(403).json({ message: "Access denied" });
+        const connection = await connectionController.findById(
+          req.body.connection_id,
+        );
+        if (connection.team_id !== teamRole.team_id) {
+          return { ok: false, status: 403, message: "Access denied" };
         }
       }
-
       if (req?.body?.dataset_id) {
         const dataset = await datasetController.findById(req.body.dataset_id);
-        if (dataset.team_id !== teamRole?.team_id) {
-          return res.status(403).json({ message: "Access denied" });
+        if (dataset.team_id !== teamRole.team_id) {
+          return { ok: false, status: 403, message: "Access denied" };
         }
       }
-
-      return next();
-    }
-
-    if (role === "projectAdmin" || role === "projectEditor" || role === "projectViewer") {
-      const datasets = await datasetController.findByProjects(team_id, projects);
-      if (!datasets || datasets.length === 0) {
-        return res.status(404).json({ message: "No datasets found" });
+      return { ok: true };
+    },
+    validateProjectScope: async (req, teamRole) => {
+      const datasets = await datasetController.findByProjects(
+        req.params.team_id,
+        teamRole.projects,
+      );
+      if (!datasets?.length) {
+        return { ok: false, status: 404, message: "No datasets found" };
       }
-
       if (req?.body?.connection_id) {
-        const connections = await connectionController.findByProjects(team_id, projects);
-        if (!connections || connections.length === 0) {
-          return res.status(404).json({ message: "No connections found" });
+        const connections = await connectionController.findByProjects(
+          req.params.team_id,
+          teamRole.projects,
+        );
+        if (!connections?.length) {
+          return { ok: false, status: 404, message: "No connections found" };
         }
       }
-
-      return next();
-    }
-
-    return res.status(403).json({ message: "Access denied" });
-  };
-
+      return { ok: true };
+    },
+  })("readOwn"); // <-- bound to a fixed actionType, giving a direct middleware
   /*
-  ** Route to create a new Data request
-  */
+   ** Route to create a new Data request
+   */
   app.post(`${root}`, verifyToken, checkPermissions, (req, res) => {
-    return dataRequestController.create(req.body)
+    return dataRequestController
+      .create(req.body)
       .then((dataRequest) => {
         return res.status(200).send(dataRequest);
       })
@@ -90,10 +82,11 @@ module.exports = (app) => {
   // -------------------------------------------------
 
   /*
-  ** Route to get a Data Request by dataset ID
-  */
+   ** Route to get a Data Request by dataset ID
+   */
   app.get(`${root}`, verifyToken, checkPermissions, (req, res) => {
-    return dataRequestController.findByDataset(req.params.dataset_id)
+    return dataRequestController
+      .findByDataset(req.params.dataset_id)
       .then((dataRequests) => {
         return res.status(200).send(dataRequests);
       })
@@ -108,10 +101,11 @@ module.exports = (app) => {
   // -------------------------------------------------
 
   /*
-  ** Route to get Data request by ID
-  */
+   ** Route to get Data request by ID
+   */
   app.get(`${root}/:id`, verifyToken, checkPermissions, (req, res) => {
-    return dataRequestController.findById()
+    return dataRequestController
+      .findById(req.params.id)
       .then((dataRequest) => {
         return res.status(200).send(dataRequest);
       })
@@ -126,10 +120,11 @@ module.exports = (app) => {
   // -------------------------------------------------
 
   /*
-  ** Route to update the dataRequest
-  */
+   ** Route to update the dataRequest
+   */
   app.put(`${root}/:id`, verifyToken, checkPermissions, (req, res) => {
-    return dataRequestController.update(req.params.id, req.body)
+    return dataRequestController
+      .update(req.params.id, req.body)
       .then((dataRequest) => {
         return res.status(200).send(dataRequest);
       })
@@ -144,14 +139,18 @@ module.exports = (app) => {
   // -------------------------------------------------
 
   /*
-  ** Route to delete a Data Request by ID
-  */
+   ** Route to delete a Data Request by ID
+   */
   app.delete(`${root}/:id`, verifyToken, checkPermissions, (req, res) => {
-    return dataRequestController.delete(req.params.id)
+    return dataRequestController
+      .delete()
       .then((dataRequest) => {
         return res.status(200).send(dataRequest);
       })
       .catch((error) => {
+        if (error.message === "404") {
+          return res.status(404).send({ error: "DataRequest not found" });
+        }
         if (error.message === "401") {
           return res.status(401).send({ error: "Not authorized" });
         }
@@ -162,17 +161,18 @@ module.exports = (app) => {
   // -------------------------------------------------
 
   /*
-  ** Route to run a request
-  */
+   ** Route to run a request
+   */
   app.post(`${root}/:id/request`, verifyToken, checkPermissions, (req, res) => {
-    return dataRequestController.runRequest({
-      id: req.params.id,
-      chart_id: req.params.chart_id,
-      noSource: req.body.noSource,
-      getCache: req.body.getCache,
-      filters: req.body.filters,
-      variables: req.body.variables,
-    })
+    return dataRequestController
+      .runRequest({
+        id: req.params.id,
+        chart_id: req.params.chart_id,
+        noSource: req.body.noSource,
+        getCache: req.body.getCache,
+        filters: req.body.filters,
+        variables: req.body.variables,
+      })
       .then((dataRequest) => {
         const newDataRequest = dataRequest;
         // reduce the size of the returned data. No point in showing thousands of objects
@@ -191,7 +191,8 @@ module.exports = (app) => {
             if (resultsKey.length > 0) {
               resultsKey.forEach((resultKey) => {
                 const slicedArray = data[resultKey].slice(0, 20);
-                newDataRequest.dataRequest.responseData.data[resultKey] = slicedArray;
+                newDataRequest.dataRequest.responseData.data[resultKey] =
+                  slicedArray;
               });
             }
           }
@@ -202,58 +203,71 @@ module.exports = (app) => {
         if (error.message === "401") {
           return res.status(401).send({ error: "Not authorized" });
         }
-
         return res.status(400).json({ error: error.message });
       });
   });
   // -------------------------------------------------
 
   /*
-  ** Route to ask AI a question
-  */
-  app.post(`${root}/:id/askAi`, verifyToken, checkPermissions, apiLimiter(10), (req, res) => {
-    return dataRequestController.askAi(
-      req.params.id,
-      req.body.question,
-      req.body.conversationHistory,
-      req.body.currentQuery,
-    )
-      .then((aiResponse) => {
-        return res.status(200).send(aiResponse);
-      })
-      .catch((error) => {
-        return res.status(400).send(error);
-      });
-  });
+   ** Route to ask AI a question
+   */
+  app.post(
+    `${root}/:id/askAi`,
+    verifyToken,
+    checkPermissions,
+    apiLimiter(10),
+    (req, res) => {
+      return dataRequestController
+        .askAi(
+          req.params.id,
+          req.body.question,
+          req.body.conversationHistory,
+          req.body.currentQuery,
+        )
+        .then((aiResponse) => {
+          return res.status(200).send(aiResponse);
+        })
+        .catch((error) => {
+          return res.status(400).send(error);
+        });
+    },
+  );
   // -------------------------------------------------
 
   /*
-  ** Route to create a new variable binding
-  */
-  app.post(`${root}/:id/variableBindings`, verifyToken, checkPermissions, (req, res) => {
-    return dataRequestController.createVariableBinding(
-      req.params.id,
-      req.body,
-    )
-      .then((variableBinding) => {
-        return res.status(200).send(variableBinding);
-      });
-  });
+   ** Route to create a new variable binding
+   */
+  app.post(
+    `${root}/:id/variableBindings`,
+    verifyToken,
+    checkPermissions,
+    (req, res) => {
+      return dataRequestController
+        .createVariableBinding(req.params.id, req.body)
+        .then((variableBinding) => {
+          return res.status(200).send(variableBinding);
+        })
+        .catch((error) => res.status(400).json({ error: error.message }));
+    },
+  );
   // -------------------------------------------------
 
   /*
-  ** Route to update a variable binding
-  */
-  app.put(`${root}/:id/variableBindings/:variable_id`, verifyToken, checkPermissions, (req, res) => {
-    return dataRequestController.updateVariableBinding(
-      req.params.id,
-      req.params.variable_id,
-      req.body,
-    )
-      .then((variableBinding) => {
-        return res.status(200).send(variableBinding);
-      });
-  });
+   ** Route to update a variable binding
+   */
+  app.put(
+    `${root}/:id/variableBindings/:variable_id`,
+    verifyToken,
+    checkPermissions,
+    (req, res) => {
+      return dataRequestController
+        .updateVariableBinding(req.params.id, req.params.variable_id, req.body)
+        .then((variableBinding) => {
+          return res.status(200).send(variableBinding);
+        })
+        .catch((error) => res.status(400).json({ error: error.message }));
+    },
+  );
   // -------------------------------------------------
 
   return (req, res, next) => {

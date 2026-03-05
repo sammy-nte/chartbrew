@@ -44,8 +44,10 @@ class SavedQueryController {
   }
 
   findByTeam(teamId, type) {
+    const where = { team_id: teamId };
+    if (type !== undefined) where.type = type;
     return db.SavedQuery.findAll({
-      where: { team_id: teamId, type },
+      where,
       include: [{ model: db.User }],
     })
       .then((savedQueries) => {
