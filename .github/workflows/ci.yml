@@ -83,7 +83,7 @@ jobs:
           cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
-        run: cd server && npm ci --ignore-scripts
+        run: cd server && npm ci
 
       - name: Run unit tests
         run: cd server && npm run test:unit
@@ -137,7 +137,7 @@ jobs:
           cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
-        run: cd server && npm ci --ignore-scripts
+        run: cd server && npm ci
 
       - name: Run security tests
         run: cd server && npm run test:security
