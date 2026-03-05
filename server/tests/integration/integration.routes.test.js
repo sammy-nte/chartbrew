@@ -87,7 +87,7 @@ describe("Integration Routes", () => {
 
     it("should return 404 when integration does not exist", async () => {
       const res = await request(app)
-        .get(`/team/${team.id}/integration/99999`)
+        .get(`/team/${team.id}/integration/00000000-0000-0000-0000-000000000000`)
         .set("Authorization", `Bearer ${authToken}`);
       expect(res.status).toBe(404);
     });
@@ -143,7 +143,7 @@ describe("Integration Routes", () => {
 
     it("should return 404 when integration does not exist", async () => {
       const res = await request(app)
-        .put(`/team/${team.id}/integration/99999`)
+        .put(`/team/${team.id}/integration/00000000-0000-0000-0000-000000000000`)
         .set("Authorization", `Bearer ${authToken}`)
         .send({ name: "Updated" });
       expect(res.status).toBe(404);
@@ -159,7 +159,7 @@ describe("Integration Routes", () => {
 
     it("should return 404 when integration does not exist", async () => {
       const res = await request(app)
-        .delete(`/team/${team.id}/integration/99999`)
+        .delete(`/team/${team.id}/integration/00000000-0000-0000-0000-000000000000`)
         .set("Authorization", `Bearer ${authToken}`);
       expect(res.status).toBe(404);
     });

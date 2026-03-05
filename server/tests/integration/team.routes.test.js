@@ -374,7 +374,7 @@ describe("Team Routes ", () => {
 
     it("should return 404 when key does not exist", async () => {
       const res = await request(app)
-        .delete(`/team/${team.id}/apikey/99999`)
+        .delete(`/team/${team.id}/apikey/00000000-0000-0000-0000-000000000000`)
         .set("Authorization", `Bearer ${authToken}`);
       expect(res.status).toBe(404);
     });
