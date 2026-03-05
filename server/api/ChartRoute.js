@@ -153,12 +153,12 @@ module.exports = (app) => {
 
   const checkFilterAccess = async (req, res, next) => {
     try {
-      const project = await projectController.findById(req.params.project_id);
+      // eslint-disable-next-line max-len
+      const [project, chart] = await Promise.all([projectController.findById(req.params.project_id), chartController.findById(req.params.chart_id)]);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      const chart = await chartController.findById(req.params.chart_id);
       if (!chart) {
         return res.status(404).json({ message: "Chart not found" });
       }
