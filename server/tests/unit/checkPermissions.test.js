@@ -12,10 +12,11 @@
  * - Transforming the action type before checking permissions
  * - Returning 500 when something unexpected goes wrong
  *
- * The real role and permission rules are used — they are not mocked.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  describe, it, expect, vi, beforeEach, afterEach
+} from "vitest";
 
 const TeamController = require("../../controllers/TeamController");
 const { createPermissionMiddleware } = require("../../middlewares/checkPermissions");

@@ -1,15 +1,3 @@
-/**
- * This test file checks the security utilities that protect logo file uploads.
- *
- * It tests:
- * - Allowing only valid image MIME types (PNG, JPEG, WebP, SVG, etc.)
- * - Detecting real image file signatures from binary data (PNG, JPEG, GIF, WebP, SVG)
- * - Rejecting files that claim to be images but actually contain HTML or scripts
- * - Rejecting SVG files that contain dangerous content like script tags or event handlers
- * - Generating safe filenames from server-side IDs (not user-supplied names)
- * - Blocking upload paths that try to escape the upload directory (e.g. ../../etc/passwd)
- * - Enforcing a 5MB maximum file size limit
- */
 import { describe, expect, it } from "vitest";
 
 const {

@@ -1,11 +1,5 @@
 /**
  * This test file checks the server's defences against Cross-Site Request Forgery (CSRF) attacks.
- *
- * Chartbrew uses JWT tokens in the Authorization header instead of session cookies.
- * Because browsers never send the Authorization header automatically in cross-origin
- * requests, CSRF attacks are blocked at the authentication layer — no separate CSRF
- * token is needed.
- *
  * It tests:
  * - That a cookie-only auth approach (the vulnerable pattern) can be exploited by a forged request
  * - That a JWT-in-header approach (Chartbrew's pattern) blocks those same forged requests
@@ -38,7 +32,6 @@ const require = createRequire(import.meta.url);
 function makeCookieAuthApp() {
   const app = express();
   app.use(express.json());
-  // No verifyToken — only reads a session cookie
   app.post("/action", (req, res) => {
     const session = req.headers.cookie;
     if (!session) return res.status(401).json({ error: "no session" });
@@ -68,10 +61,6 @@ function makeCorsApp(corsOptions = {}) {
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: false,
   }));
-  // The cors library treats a plain string `origin` as a static header value
-  // that is echoed for every request (no per-request matching). An array origin
-  // triggers actual origin matching and omits the header for non-matching
-  // origins, which is the behaviour the tests below rely on.
   const resolvedOptions = { ...corsOptions };
   if (typeof resolvedOptions.origin === "string") {
     resolvedOptions.origin = [resolvedOptions.origin];
@@ -89,23 +78,14 @@ function makeCorsApp(corsOptions = {}) {
   return app;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 1. Pattern unit tests — cookie-auth vs JWT-in-header CSRF surface
-// ═══════════════════════════════════════════════════════════════════════════════
-
 describe("CSRF Pattern — cookie-only auth is vulnerable; JWT-in-header is not", () => {
   it("cookie-auth endpoint: browser can forge request with Cookie header alone", async () => {
     const app = makeCookieAuthApp();
 
-    // An attacker's page can trigger a cross-origin form POST that includes
-    // the victim's cookies automatically. Simulate that here:
     const res = await request(app)
       .post("/action")
       .set("Cookie", "session=victim-session-token")
       .send({ transfer: 1000 });
-
-    // BUG PATTERN: the action executes with only a cookie — no explicit token required.
-    // This demonstrates the CSRF-vulnerable pattern that Chartbrew avoids.
     expect(res.status).toBe(200);
     expect(res.body.result).toBe("data changed");
   });
@@ -113,8 +93,6 @@ describe("CSRF Pattern — cookie-only auth is vulnerable; JWT-in-header is not"
   it("JWT-in-header endpoint: cookie alone is insufficient — Authorization required", async () => {
     const app = makeJwtAuthApp();
 
-    // Attacker sends request with victim's cookie but no Authorization header.
-    // Browsers cannot automatically attach the Authorization header cross-origin.
     const res = await request(app)
       .post("/action")
       .set("Cookie", "session=victim-session-token")
@@ -135,13 +113,6 @@ describe("CSRF Pattern — cookie-only auth is vulnerable; JWT-in-header is not"
     expect(res.status).toBe(200);
   });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 2. UserRoute smoke — mutating endpoints reject requests without Bearer token
-//    These tests mount the real UserRoute and confirm that authenticated
-//    endpoints (PUT /user/:id) return 401 without an Authorization header,
-//    regardless of any cookies that might be present.
-// ═══════════════════════════════════════════════════════════════════════════════
 
 describe("CSRF Protection — UserRoute rejects requests without Authorization header", () => {
   let app;
@@ -183,10 +154,6 @@ describe("CSRF Protection — UserRoute rejects requests without Authorization h
     const res = await request(app)
       .post("/user/login")
       .send({ email: "nobody@example.com", password: "wrong" });
-
-    // The response may be 401 (bad credentials) or another error, but NOT
-    // because of a missing Authorization header — login is a public endpoint.
-    // We just confirm the server responds and doesn't crash.
     expect([200, 400, 401, 403, 404, 500]).toContain(res.status);
   });
 
@@ -199,27 +166,18 @@ describe("CSRF Protection — UserRoute rejects requests without Authorization h
         email: `csrf-test-${Date.now()}@example.com`,
         password: "password123",
       });
-
-    // Response varies based on env (team restriction, etc.); the important
-    // thing is that it does NOT return 401 due to missing auth header.
     expect(res.status).not.toBe(401);
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 3. CORS configuration — verify header behaviour
-// ═══════════════════════════════════════════════════════════════════════════════
-
 describe("CSRF Protection — CORS header behaviour", () => {
   it("default cors() sets Access-Control-Allow-Origin: * for public endpoints", async () => {
-    const app = makeCorsApp(); // cors() with no options = wildcard
+    const app = makeCorsApp();
     const res = await request(app)
       .get("/api/public")
       .set("Origin", "https://attacker.example.com");
 
     expect(res.status).toBe(200);
-    // Default cors() allows all origins. This is safe for public read endpoints
-    // because CSRF requires a state-changing action that carries credentials.
     expect(res.headers["access-control-allow-origin"]).toBe("*");
   });
 
@@ -241,9 +199,6 @@ describe("CSRF Protection — CORS header behaviour", () => {
       .post("/api/protected")
       .set("Origin", "https://attacker.example.com")
       .send({ evil: true });
-
-    // CORS allows the request to reach the handler, but auth check blocks it.
-    // This confirms the protection does not rely on CORS alone.
     expect(res.status).toBe(401);
   });
 

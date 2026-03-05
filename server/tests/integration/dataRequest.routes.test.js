@@ -193,6 +193,7 @@ describe("DataRequest Routes", () => {
     });
   });
 
+  // eslint-disable-next-line max-len
   // ---- PUT /team/:team_id/datasets/:dataset_id/dataRequests/:id/variableBindings/:variable_id ----
 
   describe("PUT /team/:team_id/datasets/:dataset_id/dataRequests/:id/variableBindings/:variable_id", () => {

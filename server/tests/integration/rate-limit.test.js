@@ -5,7 +5,7 @@
  * - That POST /user/password/reset is blocked after 3 requests (429)
  * - That POST /user/:id/2fa/:method_id/login is blocked after 3 requests (429)
  * - That POST /ai/orchestrate is blocked after 3 requests (429)
- * Each endpoint has its own independent rate limiter, so that tests for different 
+ * Each endpoint has its own independent rate limiter, so that tests for different
  * endpoints do not interfere with each other.
  */
 import {

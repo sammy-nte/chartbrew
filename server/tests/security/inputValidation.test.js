@@ -1,6 +1,5 @@
 /**
  * This test file checks how the server validates numeric ID parameters in request URLs.
- *
  * It tests:
  * - That valid integer IDs (positive, zero, negative) are passed through correctly
  * - That all five recognised ID params (project_id, team_id, user_id, dataset_id,
@@ -9,9 +8,6 @@
  * - That the middleware stops at the first invalid parameter it encounters
  * - Known limitation: values starting with a number (e.g. "7abc" or "1.5") are allowed
  *   through because parseInt truncates them — this is a documented behaviour
- *
- * It also documents that body fields (like name or description) are passed through
- * as-is — the frontend (React) is responsible for safe rendering.
  */
 
 import {
@@ -26,11 +22,6 @@ const parseQueryParams = require("../../middlewares/parseQueryParams.js");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Minimal Express app with parseQueryParams applied.
- * The /test route echoes back the parsed query so assertions can inspect
- * what the middleware allowed through.
- */
 function makeApp() {
   const app = express();
   app.use(express.json());
@@ -39,10 +30,6 @@ function makeApp() {
   app.post("/test", (req, res) => res.status(200).json({ body: req.body }));
   return app;
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 1. parseQueryParams — ID parameter validation
-// ═══════════════════════════════════════════════════════════════════════════════
 
 describe("parseQueryParams — numeric ID validation", () => {
   let app;
@@ -63,8 +50,6 @@ describe("parseQueryParams — numeric ID validation", () => {
   });
 
   it("passes through a negative integer (valid per parseInt)", async () => {
-    // parseInt("-5") = -5, Number.isInteger(-5) = true → middleware allows it.
-    // NOTE: route-level logic should additionally enforce id > 0 if needed.
     const res = await request(app).get("/test?project_id=-5");
     expect(res.status).toBe(200);
     expect(res.body.query.project_id).toBe(-5);
@@ -84,7 +69,6 @@ describe("parseQueryParams — numeric ID validation", () => {
   });
 
   it("passes through unrecognised params without validation", async () => {
-    // Only the 5 named params are checked; arbitrary params are forwarded as-is.
     const res = await request(app).get("/test?foo=bar&project_id=10");
     expect(res.status).toBe(200);
     expect(res.body.query.foo).toBe("bar");
@@ -110,7 +94,6 @@ describe("parseQueryParams — numeric ID validation", () => {
   });
 
   it("rejects a null-byte project_id (%00)", async () => {
-    // parseInt("\x00") = NaN
     const res = await request(app).get("/test?project_id=%00");
     expect(res.status).toBe(400);
   });
@@ -122,14 +105,8 @@ describe("parseQueryParams — numeric ID validation", () => {
 
   it("rejects a SQL injection string as project_id", async () => {
     const res = await request(app).get("/test?project_id=1%20OR%201%3D1");
-    // "1 OR 1=1" — parseInt stops at the space → parseInt("1 OR 1=1") = 1
-    // This passes the middleware (parseInt truncates). The test documents this
-    // known limitation: the middleware protects against NaN but not partial strings.
-    // parseInt("1 OR 1=1", 10) === 1 and Number.isInteger(1) === true.
     expect([200, 400]).toContain(res.status);
     if (res.status === 200) {
-      // Middleware truncated to 1 — document that route handlers must not build
-      // raw SQL from this value (Sequelize ORM parameterization handles this).
       expect(res.body.query.project_id).toBe(1);
     }
   });
@@ -141,29 +118,18 @@ describe("parseQueryParams — numeric ID validation", () => {
     expect(res.body.message).toMatch(/team_id/i);
   });
 
-  // ── Floating-point truncation behaviour (documented) ───────────────────────
-
   it("truncates float project_id to integer via parseInt and allows it through", async () => {
-    // parseInt("1.5") = 1. The middleware currently allows this.
-    // If strict integer-only semantics are needed, a regex pre-check would be required.
     const res = await request(app).get("/test?project_id=1.5");
     expect(res.status).toBe(200);
     expect(res.body.query.project_id).toBe(1);
   });
 
   it("truncates trailing-alpha project_id ('7abc') to 7 and allows it through", async () => {
-    // parseInt("7abc") = 7. Same documented limitation as above.
     const res = await request(app).get("/test?project_id=7abc");
     expect(res.status).toBe(200);
     expect(res.body.query.project_id).toBe(7);
   });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 2. Body field passthrough — documents absence of server-side sanitization
-//    These tests document the current behaviour so that future refactors don't
-//    accidentally suppress the expected response shape.
-// ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Body input — server returns user-supplied strings as-is (JSON context)", () => {
   let app;
@@ -172,6 +138,7 @@ describe("Body input — server returns user-supplied strings as-is (JSON contex
   const XSS_PAYLOADS = [
     "<script>alert(1)</script>",
     "<img src=x onerror=alert(1)>",
+    // eslint-disable-next-line no-script-url
     "javascript:alert(1)",
     "';alert(1)//",
     "<svg onload=alert(1)>",
@@ -204,6 +171,7 @@ describe("Body input — server returns user-supplied strings as-is (JSON contex
   });
 
   it("nested objects in body are accepted without sanitization", async () => {
+    // eslint-disable-next-line no-script-url
     const payload = { config: { url: "javascript:void(0)", label: "<b>hi</b>" } };
     const res = await request(app).post("/test").send(payload);
     expect(res.status).toBe(200);

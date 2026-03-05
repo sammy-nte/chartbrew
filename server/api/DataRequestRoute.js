@@ -1,7 +1,6 @@
 const rateLimit = require("express-rate-limit");
 
 const DataRequestController = require("../controllers/DataRequestController");
-const TeamController = require("../controllers/TeamController");
 const verifyToken = require("../modules/verifyToken");
 const DatasetController = require("../controllers/DatasetController");
 const ConnectionController = require("../controllers/ConnectionController");
@@ -18,7 +17,6 @@ const apiLimiter = (max = 10) => {
 
 module.exports = (app) => {
   const dataRequestController = new DataRequestController();
-  const teamController = new TeamController();
   const datasetController = new DatasetController();
   const connectionController = new ConnectionController();
 
@@ -191,8 +189,7 @@ module.exports = (app) => {
             if (resultsKey.length > 0) {
               resultsKey.forEach((resultKey) => {
                 const slicedArray = data[resultKey].slice(0, 20);
-                newDataRequest.dataRequest.responseData.data[resultKey] =
-                  slicedArray;
+                newDataRequest.dataRequest.responseData.data[resultKey] = slicedArray;
               });
             }
           }

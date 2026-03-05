@@ -1,17 +1,3 @@
-/**
- * This test file checks the factory functions used to build test data objects.
- *
- * It tests:
- * - Building a user object with valid default fields (name, email, password, active, admin)
- * - Building multiple unique users at once
- * - Overriding specific fields when building a user
- * - Building admin users and inactive users
- * - Building a team object with valid fields and permission flags
- * - Building a project object (public, private, or password-protected)
- * - Building a connection object (API, MySQL, PostgreSQL, with or without auth)
- *
- * These factories are used by other tests to quickly create realistic test data.
- */
 import { describe, it, expect } from "vitest";
 import {
   userFactory, teamFactory, projectFactory, connectionFactory

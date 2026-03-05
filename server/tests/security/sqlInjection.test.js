@@ -12,9 +12,8 @@ import {
   describe, it, expect,
 } from "vitest";
 import { readFileSync, readdirSync } from "fs";
-import { join, resolve } from "path";
+import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { dirname } from "path";
 import { createRequire } from "module";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,18 +25,6 @@ const {
 } = require("../../modules/applyVariables.js");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Build a minimal dataRequest object for MySQL/Postgres.
- * @param {string} query   - SQL template, e.g. "SELECT * FROM t WHERE x = {{x}}"
- * @param {Array}  bindings - VariableBindings array
- */
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 1. Static analysis — no unsafe raw query patterns
-//    Scans controllers and modules for sequelize.query() calls that
-//    interpolate variables directly into the SQL string.
-// ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Static Analysis — no raw SQL string interpolation", () => {
   const CONTROLLERS_DIR = resolve(__dirname, "../../controllers");
@@ -52,14 +39,13 @@ describe("Static Analysis — no raw SQL string interpolation", () => {
       return violations; // directory may not exist in all environments
     }
     for (const entry of files) {
+      // eslint-disable-next-line no-continue
       if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
       const filePath = join(dir, entry.name);
       const source = readFileSync(filePath, "utf8");
       source.split("\n").forEach((line, idx) => {
         const trimmed = line.trim();
         if (trimmed.startsWith("//") || trimmed.startsWith("*")) return;
-        // Flag sequelize.query() calls that use template-literal interpolation:
-        //   sequelize.query(`SELECT ... ${variable}`)
         if (/sequelize\.query\s*\(\s*`/.test(trimmed) && /\$\{/.test(trimmed)) {
           violations.push({
             file: entry.name,

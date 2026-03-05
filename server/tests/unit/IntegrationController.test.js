@@ -12,8 +12,9 @@
  *
  * All database calls are intercepted using spies so no real database is needed.
  */
-
-import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  describe, it, expect, vi, afterEach
+} from "vitest";
 
 const db = require("../../models/models");
 const IntegrationController = require("../../controllers/IntegrationController");
@@ -198,4 +199,3 @@ describe("IntegrationController", () => {
     });
   });
 });
-

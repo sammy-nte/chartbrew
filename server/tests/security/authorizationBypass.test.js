@@ -15,7 +15,9 @@
  * - That every TemplateRoute endpoint rejects unauthenticated requests with 401
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  describe, it, expect, vi, beforeEach
+} from "vitest";
 import request from "supertest";
 import express from "express";
 import { readFileSync, readdirSync, existsSync } from "fs";
@@ -26,9 +28,6 @@ import { createRequire } from "module";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// createRequire is used only to load the real route for smoke-tests (layer 3).
-// We do NOT mock the route's dependencies here because require() inside CJS
-// modules is not intercepted by vi.mock().
 const require = createRequire(import.meta.url);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -53,8 +52,6 @@ function getRouteFiles() {
   return files;
 }
 
-// Mount the real TemplateRoute (all DB calls will be blocked at verifyToken
-// because no Authorization header is sent in the smoke tests).
 function makeTemplateApp() {
   const app = express();
   app.use(express.json());
@@ -63,16 +60,7 @@ function makeTemplateApp() {
   return app;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 1. PATTERN UNIT TESTS — self-contained, no external dependencies
-//    These replicate the exact code pattern present in TemplateRoute.js.
-// ═══════════════════════════════════════════════════════════════════════════════
-
 describe("Unawaited Permission Check — vulnerability pattern", () => {
-  // DENIED: simulates a rejected access check (user not in team, or no permission).
-  // We attach a no-op .catch() so the Promise is not reported as an
-  // "unhandled rejection" — the vulnerability is that the route handler ignores it,
-  // not that it escapes globally.
   const DENIED = () => {
     const p = Promise.reject(new Error("401"));
     p.catch(() => {}); // suppress unhandled-rejection warning
@@ -80,19 +68,12 @@ describe("Unawaited Permission Check — vulnerability pattern", () => {
   };
   const GRANTED = () => Promise.resolve({ role: "teamAdmin" });
 
-  /**
-   * BUGGY pattern — mirrors TemplateRoute.js BEFORE the fix:
-   *   • handler is a plain (non-async) function
-   *   • checkAccess() Promise is not awaited
-   *   • the try/catch block can never intercept an async rejection
-   */
   function buildVulnerableApp(checkAccess, downstream) {
     const app = express();
     // eslint-disable-next-line consistent-return
     app.get("/protected", (req, res) => {
-      // ← not async
       try {
-        checkAccess(); // ← Promise not awaited
+        checkAccess();
       } catch (_err) {
         return res.status(401).json({ error: "unauthorized" });
       }
@@ -101,17 +82,11 @@ describe("Unawaited Permission Check — vulnerability pattern", () => {
     return app;
   }
 
-  /**
-   * FIXED pattern — mirrors TemplateRoute.js AFTER the fix:
-   *   • handler is async
-   *   • checkAccess() is awaited → rejection propagates to the catch block
-   */
   function buildFixedApp(checkAccess, downstream) {
     const app = express();
     app.get("/protected", async (req, res) => {
-      // ← async
       try {
-        await checkAccess(); // ← awaited
+        await checkAccess();
       } catch (_err) {
         return res.status(401).json({ error: "unauthorized" });
       }
@@ -122,8 +97,7 @@ describe("Unawaited Permission Check — vulnerability pattern", () => {
 
   let downstreamSpy;
   beforeEach(() => {
-    downstreamSpy = vi.fn((req, res) =>
-      res.status(200).json({ secret: "data" }),
+    downstreamSpy = vi.fn((req, res) => res.status(200).json({ secret: "data" }),
     );
   });
 
@@ -133,10 +107,8 @@ describe("Unawaited Permission Check — vulnerability pattern", () => {
     it("downstream handler executes even when checkAccess rejects", async () => {
       const app = buildVulnerableApp(DENIED, downstreamSpy);
       const res = await request(app).get("/protected");
-
-      // BUG: the rejected Promise is silently discarded; downstream still runs
       expect(downstreamSpy).toHaveBeenCalled();
-      expect(res.status).toBe(200); // should have been 401
+      expect(res.status).toBe(200);
     });
   });
 
@@ -178,28 +150,19 @@ describe("Unawaited Permission Check — vulnerability pattern", () => {
     });
 
     it("data-fetching handler is not called when access is denied", async () => {
-      // This is the primary regression assertion for the /generate endpoint:
-      // getDashboardModel must never run when checkAccess rejects.
       const fetchData = vi.fn(() => Promise.resolve({ charts: [] }));
 
-      const app = buildFixedApp(DENIED, (req, res) =>
-        fetchData().then((d) => res.status(200).json(d)),
+      // eslint-disable-next-line max-len
+      const app = buildFixedApp(DENIED, (_req, res) => fetchData().then((d) => res.status(200).json(d)),
       );
 
       const res = await request(app).get("/protected");
 
       expect(res.status).toBe(401);
-      expect(fetchData).not.toHaveBeenCalled(); // no data exfiltration
+      expect(fetchData).not.toHaveBeenCalled();
     });
   });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 2. STATIC ANALYSIS — scan every route file for bare checkAccess() calls
-//    A bare call is one that starts the statement (after trimming whitespace)
-//    without a preceding `await`, `return`, or assignment operator.
-//    Any match is a potential SEC-03 regression.
-// ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Static Analysis: no bare checkAccess() calls in route files", () => {
   it("all checkAccess() invocations are preceded by await or return", () => {
@@ -211,20 +174,14 @@ describe("Static Analysis: no bare checkAccess() calls in route files", () => {
       source.split("\n").forEach((line, idx) => {
         const trimmed = line.trim();
 
-        // Skip blank lines and comments
-        if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("*"))
-          return;
+        if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("*")) return;
 
-        // Skip function/variable definitions:  const checkAccess = ...
         if (
           /^(?:const|let|var|(?:async\s+)?function)\s+checkAccess\b/.test(
             trimmed,
           )
-        )
-          return;
+        ) return;
 
-        // Flag statements whose first token is `checkAccess(`.
-        // Safe callers start with:  await / return / identifier =
         if (
           /\bcheckAccess\s*\(/.test(trimmed)
           && !/\bawait\s+checkAccess\s*\(/.test(trimmed)
@@ -244,23 +201,14 @@ describe("Static Analysis: no bare checkAccess() calls in route files", () => {
         .map((v) => `  ${v.file}:${v.line}  →  ${v.code}`)
         .join("\n");
       expect.fail(
-        `Auth Bypass: ${violations.length} unawaited checkAccess call(s) found.\n` +
-          `Fix each by adding \`await\` and making the handler \`async\`:\n${detail}`,
+        `Auth Bypass: ${violations.length} unawaited checkAccess call(s) found.\n`
+          + `Fix each by adding \`await\` and making the handler \`async\`:\n${detail}`,
       );
     }
 
-    // Explicit assertion so the test registers as "passed" rather than vacuous
     expect(violations).toHaveLength(0);
   });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 3. INTEGRATION SMOKE — real TemplateRoute mounted on Express
-//    Verifies that every guarded endpoint is registered and that the
-//    authentication gate (verifyToken) rejects requests with no token.
-//    SEC-03 authorisation-level assertions are covered by layers 1 & 2;
-//    see the note at the top of this file about CJS mock limitations.
-// ═══════════════════════════════════════════════════════════════════════════════
 
 const TEAM_ID = "42";
 const PROJECT_ID = "99";
